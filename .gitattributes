@@ -11,3 +11,4 @@
 # 语言统计
 *.java  linguist-language=Java
 *.sql   linguist-language=SQL
+*.bat text eol=crlf

@@ -25,7 +25,7 @@ if not defined GM_JAVA if defined JAVA_HOME if exist "%JAVA_HOME%\bin\javaw.exe"
 if not defined GM_JAVA for /f "delims=" %%j in ('where javaw 2^>nul') do if not defined GM_JAVA set "GM_JAVA=%%j"
 if not defined GM_JAVA (
     echo [ERROR] JDK 11+ not found.
-    echo         Install JDK 11+ , or set GMT_JAVA=^<path to javaw.exe^> , or put JDK11 next to the repo (..\..\JDK11).
+    echo         Install JDK 11+ , or set GMT_JAVA=^<path to javaw.exe^> , or put JDK11 next to the repo ^(..\..\JDK11^).
     pause & exit /b 1
 )
 
