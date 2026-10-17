@@ -63,8 +63,14 @@ echo   AGENT: 127.0.0.1:%APORT%  --ssh tunnel--^>  %SSHHOST%:17980
 echo ============================================================
 echo.
 
-echo [0/4] fixing private key ACL ^(Windows ssh rejects open permissions^) ...
-icacls "%PEM%" /inheritance:r /grant:r "%USERNAME%:R" >nul 2>&1
+echo [0/4] preparing private key ^(Windows ssh rejects open permissions^) ...
+set "KEYCOPY=%TEMP%\l1j_gmtool_key_%RANDOM%.pem"
+copy /Y "%PEM%" "%KEYCOPY%" >nul
+if errorlevel 1 (
+    echo [ERROR] cannot copy private key
+    pause & exit /b 1
+)
+icacls "%KEYCOPY%" /inheritance:r /grant:r "%USERNAME%:R" >nul 2>&1
 
 rem ---------- 4. 结束旧实例（按端口） ----------
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr /C:":17880" ^| findstr /C:"LISTENING"') do taskkill /F /PID %%p >nul 2>&1
@@ -80,7 +86,7 @@ if not errorlevel 1 (
 if defined TUNNEL_UP (
     echo       tunnel already listening, reusing
 ) else (
-    start "L1J-DB-Tunnel" /min ssh -N -L %LPORT%:127.0.0.1:3306 -L %APORT%:127.0.0.1:17980 -i "%PEM%" -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes %SSHHOST%
+    start "L1J-DB-Tunnel" /min ssh -N -L %LPORT%:127.0.0.1:3306 -L %APORT%:127.0.0.1:17980 -i "%KEYCOPY%" -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes %SSHHOST%
     ping -n 7 127.0.0.1 >nul
 )
 
@@ -101,7 +107,7 @@ echo       tunnel OK
 
 echo [3/4] fetching GMAgent token ...
 if not exist "%~dp0data" mkdir "%~dp0data"
-ssh -i "%PEM%" -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL %SSHHOST% "sudo cat /opt/l1j/deploy/agent.token" > "%~dp0data\agent.token" 2>nul
+ssh -i "%KEYCOPY%" -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL %SSHHOST% "sudo cat /opt/l1j/deploy/agent.token" > "%~dp0data\agent.token" 2>nul
 for %%A in ("%~dp0data\agent.token") do if %%~zA LSS 16 (
     echo [ERROR] cannot fetch agent token from server
     echo         expected: /opt/l1j/deploy/agent.token on the server
