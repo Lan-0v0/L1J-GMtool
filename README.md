@@ -13,7 +13,7 @@
 
 ## 启动
 
-- **本地**：双击 `启动GM工具.bat`
+- **本地**：双击 `start-gmtool-local.bat`
 - **远端**：双击 `start-gmtool-remote.bat` —— 自动修私钥 ACL、切换 `sql.properties` 到远端、建 SSH 隧道（`13306` 数据库 + `17980` agent）、拉取 agent 令牌、以 `-Dgmtool.agent=tunnel` 启动。端口已在监听则直接复用。
 
 ## 用法要点
