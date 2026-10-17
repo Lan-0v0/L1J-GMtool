@@ -180,8 +180,8 @@ function canAct() {
   if (!state.status) return false;
   // 隧道 agent 模式：服务端进程内执行，和本地注入等价
   if (state.status.mode === "tunnel-agent") return Boolean(state.status.agent);
-  // 远端模式没有注入通道：只要本地游戏窗口在，指令就能经窗口下发
-  if (state.status.mode === "remote") return Boolean(state.status.gameWindow);
+  // 旧的窗口粘贴通道已移除：remote 模式必须有 agent 隧道
+  if (state.status.mode === "remote") return false;
   return Boolean(state.status.agent);
 }
 const SELECT_KEY = "l1j-gmtool-selected";

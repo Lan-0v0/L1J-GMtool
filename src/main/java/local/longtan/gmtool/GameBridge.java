@@ -1,9 +1,6 @@
 package local.longtan.gmtool;
 
 import javax.imageio.ImageIO;
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.StringSelection;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,7 +17,6 @@ final class GameBridge {
     private volatile long windowCacheUntil;
     private volatile boolean windowCache;
     private volatile String detectedName = "";
-    private final Path focusScript;
     private final Path captureScript;
     private final Path capturePng;
 
@@ -30,13 +26,13 @@ final class GameBridge {
             home = Path.of("").toAbsolutePath();
         }
         Path data = home.resolve("data");
-        this.focusScript = data.resolve("focus-game.ps1");
         this.captureScript = data.resolve("capture-game.ps1");
         this.capturePng = data.resolve("game-window.png");
         try {
             Files.createDirectories(data);
-            copyScript("/ps/focus-game.ps1", focusScript);
             copyScript("/ps/capture-game.ps1", captureScript);
+            // 窗口粘贴通道已废弃：清掉历史遗留脚本，避免误以为还在用
+            Files.deleteIfExists(data.resolve("focus-game.ps1"));
         } catch (IOException ignored) {
         }
     }
@@ -116,27 +112,6 @@ final class GameBridge {
         return text;
     }
 
-    void sendCommand(String command) throws IOException, InterruptedException {
-        if (command == null || command.isBlank() || command.length() > 240) {
-            throw new IllegalArgumentException("指令为空或过长");
-        }
-        if (!isGameWindowAvailable()) {
-            throw new IllegalStateException("未找到游戏窗口 TW13032701.bin / Lin.bin");
-        }
-        sendLock.lock();
-        try {
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            clipboard.setContents(new StringSelection(command), null);
-            if (!pasteIntoGame()) {
-                throw new IllegalStateException("无法把游戏窗口切到前台。指令已在剪贴板：" + command
-                        + "。请点一下游戏画面，Ctrl+V 后回车");
-            }
-            windowCacheUntil = 0;
-        } finally {
-            sendLock.unlock();
-        }
-    }
-
     private boolean hasGameProcess() {
         return ProcessHandle.allProcesses().anyMatch(process -> process.info().command()
                 .map(command -> {
@@ -173,36 +148,6 @@ final class GameBridge {
             detectedName = "TW13032701.bin";
         }
         return found;
-    }
-
-    private boolean pasteIntoGame() {
-        if (Files.isRegularFile(focusScript)) {
-            return runFile(focusScript);
-        }
-        return runPowerShell(
-                "$p = Get-Process | Where-Object { $_.MainWindowTitle -match '13032701' } | Select-Object -First 1;"
-                        + " if (-not $p) { exit 1 };"
-                        + " $s = New-Object -ComObject WScript.Shell;"
-                        + " if (-not $s.AppActivate($p.Id)) { exit 1 };"
-                        + " Start-Sleep -Milliseconds 220;"
-                        + " $s.SendKeys('~'); Start-Sleep -Milliseconds 120;"
-                        + " $s.SendKeys('^v'); Start-Sleep -Milliseconds 100;"
-                        + " $s.SendKeys('~'); exit 0",
-                true);
-    }
-
-    private boolean runFile(Path script) {
-        try {
-            Process process = new ProcessBuilder(
-                    "powershell.exe", "-NoProfile", "-STA", "-NonInteractive",
-                    "-ExecutionPolicy", "Bypass", "-File", script.toAbsolutePath().toString())
-                    .redirectErrorStream(true)
-                    .start();
-            byte[] out = process.getInputStream().readAllBytes();
-            return process.waitFor() == 0;
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     private static boolean runPowerShell(String script, boolean sta) {

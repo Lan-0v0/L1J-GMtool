@@ -25,7 +25,7 @@ final class ServerBridge {
     private final Path findScript;
     private volatile boolean attached;
     // 远端模式：服务端跑在云端，本机没有 com.lineage.Server 进程可注入。
-    // 此模式下所有「注入式」指令改为明确报错，GM 指令请走游戏窗口通道。
+    // 此模式下不 attach；若同时启用 tunnel agent 则走 SSH 隧道。
     private final boolean remote;
     // 隧道 agent 模式：云端的服务端用 -javaagent 启动（GMAgent-remote），
     // GM 台经 SSH 隧道访问 127.0.0.1:17980，指令在服务端进程内执行，不碰游戏窗口。
@@ -89,7 +89,7 @@ final class ServerBridge {
             row.put("agentPort", 0);
             row.put("serverPids", new ArrayList<Long>());
             row.put("agentMode", "remote");
-            row.put("agentError", "远端模式：服务端在云端，指令走游戏窗口");
+            row.put("agentError", "远端模式未启用 agent 隧道：请用 start-gmtool-remote.bat 启动");
             return row;
         }
         int ver = pingVer();
@@ -122,7 +122,7 @@ final class ServerBridge {
                     + "请确认 SSH 隧道带 -L 17980:127.0.0.1:17980，且云端服务端已安装 GMAgent-remote");
         }
         if (remote) {
-            throw new IllegalStateException("远端模式：服务端在云端，无法注入。GM 指令请通过游戏窗口发送（.给予o / .传送o 等）。");
+            throw new IllegalStateException("远端模式无法注入：请用 start-gmtool-remote.bat（-Dgmtool.agent=tunnel）经 SSH 隧道调用 GMAgent。");
         }
         if (pingVer() >= NEED_VER) {
             attached = true;

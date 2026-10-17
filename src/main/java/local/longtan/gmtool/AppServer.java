@@ -490,16 +490,8 @@ final class AppServer {
         }
         Map<String, Object> result = new LinkedHashMap<>();
         if (live) {
-            if (remote) {
-                // 远端模式没有注入通道：.npco 只能刷在操作者脚底，也拿不到 objId
-                gameBridge.sendCommand(".npco " + npcId);
-                audit.write("脚底测试NPC", "npc=" + npcId + " (window)");
-                Map<String, Object> win = new LinkedHashMap<>();
-                win.put("ok", true);
-                win.put("mode", "window");
-                win.put("npcId", npcId);
-                win.put("message", "已发送 .npco " + npcId + "，NPC 会刷在当前角色脚底；远端模式不返回 objId，无法一键撤回");
-                return win;
+            if (remote && !tunnelAgent) {
+                throw new IllegalStateException("实时刷 NPC 需要 agent 通道：请用 start-gmtool-remote.bat（tunnel-agent 模式），窗口粘贴通道已移除");
             }
             serverBridge.ensure();
             String opName = onlineName(operatorId);
@@ -756,20 +748,16 @@ final class AppServer {
     /**
      * 统一发指令入口。
      * 本地模式：走 ServerBridge（JVMTI 注入，以任意在线角色身份执行、不抢焦点）。
-     * 远端模式：服务端在云端无法注入，改由本地游戏窗口粘贴发送
+     * 远端模式：经 SSH 隧道调用云端 GMAgent（窗口粘贴通道已移除）
      *          —— 执行者固定是「当前在窗口里登录的角色」，必须是有 GM 权限的号。
      */
     private void execCommand(String operator, String command) throws Exception {
-        if (tunnelAgent) {
-            // 云端服务端经 -javaagent 加载了 GMAgent，走 SSH 隧道直接进程内执行
-            serverBridge.ensure();
-            serverBridge.command(operator, command);
-            return;
+        if (remote && !tunnelAgent) {
+            // 窗口粘贴通道已移除（游戏提权 + 客户端 Ctrl+V 是自家热键，粘贴永远进不去）
+            throw new IllegalStateException("当前为 remote 模式但未启用 agent 隧道："
+                    + "请用 start-gmtool-remote.bat 启动（-Dgmtool.agent=tunnel），或用本机 attach 模式");
         }
-        if (remote) {
-            gameBridge.sendCommand("." + command);
-            return;
-        }
+        // tunnel-agent / 本地 attach：都在服务端进程内执行
         serverBridge.ensure();
         serverBridge.command(operator, command);
     }
@@ -779,7 +767,7 @@ final class AppServer {
         if (!Boolean.TRUE.equals(character.get("online"))) {
             throw new IllegalStateException("操作者不在线");
         }
-        // 远端模式没有注入通道，在线判定即可；真正的执行者是游戏窗口里登录的角色
+        // 远端模式经隧道调 agent，在线判定即可
         if (!remote) serverBridge.ensure();
         return character;
     }
