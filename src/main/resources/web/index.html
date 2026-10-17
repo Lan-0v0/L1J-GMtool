@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>龙潭 GM 台</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="shell drawer-closed">
+  <aside class="sidebar">
+    <div class="brand">L1J-GMtool</div>
+    <nav id="nav">
+      <button class="nav-item active" data-view="chars"><svg><use href="/icons.svg#users"/></svg>角色</button>
+      <button class="nav-item" data-view="map"><svg><use href="/icons.svg#map"/></svg>传送</button>
+      <div class="nav-group open" id="codexGroup">
+        <button type="button" class="nav-group-toggle" id="codexToggle" aria-expanded="true" aria-controls="codexSub">
+          <svg><use href="/icons.svg#book"/></svg>图鉴
+          <svg class="caret"><use href="/icons.svg#chevron-right"/></svg>
+        </button>
+        <div class="nav-sub" id="codexSub">
+          <div class="nav-sub-inner">
+            <button class="nav-item" data-view="items"><svg><use href="/icons.svg#package"/></svg>物品</button>
+            <button class="nav-item" data-view="npcs"><svg><use href="/icons.svg#npc"/></svg>NPC</button>
+            <button class="nav-item" data-view="mobs"><svg><use href="/icons.svg#swords"/></svg>怪物</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <div class="side-lamps">
+      <span class="lamp" id="lampDb"><i></i>库</span>
+      <span class="lamp" id="lampWin" title="游戏服"><i></i>服</span>
+    </div>
+  </aside>
+
+  <div class="stage">
+    <header class="topbar">
+      <div class="chips" id="chips"><span class="hint" id="chipEmpty">先选定角色</span></div>
+      <div class="top-right">
+        <button class="ghost" id="pendingToggle" aria-expanded="false" aria-controls="drawer">行为 <b id="pendingCount">0</b></button>
+      </div>
+    </header>
+
+    <section class="view active" id="view-chars">
+      <div class="workspace" data-inspector="chars">
+        <div class="pane">
+          <div class="toolbar">
+            <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="charSearch" placeholder="角色 / 账号" autocomplete="off"></label>
+            <div class="filter-wrap">
+              <button type="button" class="icon-button" id="charFilterBtn" aria-expanded="false" aria-controls="charFilterPop" title="筛选"><svg><use href="/icons.svg#filter"/></svg></button>
+              <div class="filter-pop" id="charFilterPop" hidden>
+                <div class="filter-nav">
+                  <button type="button" class="active" data-pane="online">在线状态</button>
+                  <button type="button" data-pane="job">职业</button>
+                </div>
+                <div class="filter-body">
+                  <div class="filter-pane" data-pane="online">
+                    <label class="check-row"><input type="checkbox" id="fltOnline" checked>在线</label>
+                    <label class="check-row"><input type="checkbox" id="fltOffline" checked>离线</label>
+                  </div>
+                  <div class="filter-pane" data-pane="job" hidden>
+                    <label class="check-row"><input type="radio" name="fltJob" value="" checked>全部</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="0">王族</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="1">骑士</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="2">妖精</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="3">法师</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="4">黑暗妖精</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="5">龙骑士</label>
+                    <label class="check-row"><input type="radio" name="fltJob" value="6">幻术师</label>
+                  </div>
+                </div>
+                <div class="filter-foot">
+                  <button type="button" class="secondary" id="charFilterReset">重置</button>
+                  <button type="button" class="primary slim" id="charFilterApply"><svg><use href="/icons.svg#search"/></svg>应用筛选</button>
+                </div>
+              </div>
+            </div>
+            <div class="list-meta" data-wrap="charWrap">
+              <span class="count" id="charCount"></span>
+              <button type="button" class="icon-button" id="charPrev" aria-label="上一页" title="上一页"><svg><use href="/icons.svg#chevron-left"/></svg></button>
+              <button type="button" class="icon-button" id="charNext" aria-label="下一页" title="下一页"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+              <span class="page-stat" id="charPage"></span>
+              <button type="button" class="icon-button to-top" id="charTop" aria-label="回到顶部" title="回到顶部"><svg><use href="/icons.svg#to-top"/></svg></button>
+            </div>
+          </div>
+          <div class="table-wrap" id="charWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="check"></th>
+                  <th>名称</th>
+                  <th>账号</th>
+                  <th>职业</th>
+                  <th data-sort="level">等级</th>
+                  <th data-sort="exp">经验</th>
+                  <th>最大生命值/魔力值</th>
+                  <th>在线</th>
+                </tr>
+              </thead>
+              <tbody id="charRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="inspector-col">
+          <button type="button" class="inspector-toggle" aria-label="隐藏侧栏" aria-expanded="true" title="隐藏侧栏"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+          <aside class="inspector" id="charInspector">
+            <div class="inspect-name" id="charInspectName">未选行</div>
+            <dl class="kv" id="charKv"></dl>
+            <label class="field">权限<input type="number" id="accessLevel" min="0" max="200"></label>
+            <div class="row2">
+              <label class="field">血<input type="number" id="statHp"></label>
+              <label class="field">血上限<input type="number" id="statMaxHp"></label>
+              <label class="field">蓝<input type="number" id="statMp"></label>
+              <label class="field">蓝上限<input type="number" id="statMaxMp"></label>
+            </div>
+            <p class="note" id="statNote"></p>
+            <div class="actions">
+              <button class="primary" id="saveAccess" disabled>写权限</button>
+              <button class="primary" id="saveStats" disabled>写血蓝</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-items">
+      <div class="workspace" data-inspector="items">
+        <div class="pane">
+          <div class="toolbar">
+            <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="itemSearch" placeholder="物品名称或 ID" autocomplete="off"></label>
+            <div class="segments" id="itemCats">
+              <button class="active" data-category="all">全部</button>
+              <button data-category="weapon">武器</button>
+              <button data-category="armor">防具</button>
+              <button data-category="etc">道具</button>
+            </div>
+            <button class="primary slim" id="newItemBtn"><svg><use href="/icons.svg#plus"/></svg>新建物品</button>
+            <div class="list-meta" data-wrap="itemWrap">
+              <span class="count" id="itemCount"></span>
+              <button type="button" class="icon-button" id="itemPrev" aria-label="上一页" title="上一页"><svg><use href="/icons.svg#chevron-left"/></svg></button>
+              <button type="button" class="icon-button" id="itemNext" aria-label="下一页" title="下一页"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+              <span class="page-stat" id="itemPage"></span>
+              <button type="button" class="icon-button to-top" id="itemTop" aria-label="回到顶部" title="回到顶部"><svg><use href="/icons.svg#to-top"/></svg></button>
+            </div>
+          </div>
+          <div class="table-wrap" id="itemWrap">
+            <table>
+              <thead><tr><th>ID</th><th>名称</th><th>大类</th><th>类型</th><th>负重</th><th>堆叠</th></tr></thead>
+              <tbody id="itemRows"></tbody>
+            </table>
+            <div class="empty" id="itemEmpty" hidden>没有符合条件的物品</div>
+          </div>
+        </div>
+        <div class="inspector-col">
+          <button type="button" class="inspector-toggle" aria-label="隐藏侧栏" aria-expanded="true" title="隐藏侧栏"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+          <aside class="inspector" id="itemInspector"></aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-map">
+      <div class="workspace map-workspace" data-inspector="map">
+        <div class="map-pane">
+          <div class="map-hud">
+            <div class="map-hud-title" id="mapHudTitle">未选地图</div>
+            <button type="button" class="icon-button map-refresh" id="mapRefresh" title="刷新地图列表与样貌" aria-label="刷新地图列表与样貌">
+              <svg><use href="/icons.svg#refresh"/></svg>
+            </button>
+          </div>
+          <canvas id="mapCanvas"></canvas>
+        </div>
+        <div class="inspector-col">
+          <button type="button" class="inspector-toggle" aria-label="隐藏侧栏" aria-expanded="true" title="隐藏侧栏"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+          <aside class="inspector map-inspector">
+          <div class="insp-tabs" role="tablist">
+            <button type="button" class="active" data-tab="pick" role="tab" aria-selected="true">地图选择</button>
+            <button type="button" data-tab="goto" role="tab" aria-selected="false">选人传送</button>
+          </div>
+          <div class="insp-pane" id="mapPickPane">
+            <div class="inspect-name" id="mapTitle">未选地图</div>
+            <label class="field">搜索地图<input id="mapSearch" placeholder="输入地图名称或编号"></label>
+            <div class="map-filter-row" id="mapGroups"></div>
+            <div class="map-catalog" id="mapCatalog"></div>
+            <div class="map-go-foot">
+              <label class="map-coord-row">
+                <span>坐标</span>
+                <input id="mapCellInput" placeholder="点击地图或搜索坐标" autocomplete="off" spellcheck="false">
+              </label>
+              <button class="primary" id="mapGo" disabled>传至地图</button>
+            </div>
+          </div>
+          <div class="insp-pane" id="mapGotoPane" hidden>
+            <label class="search goto-search"><svg><use href="/icons.svg#search"/></svg><input id="gotoSearch" placeholder="找要前往的角色" autocomplete="off"></label>
+            <p class="muted" id="gotoHint">勾选角色后，点击下方目标直接传送</p>
+            <div class="goto-list" id="gotoList"></div>
+          </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-npcs">
+      <div class="workspace" data-inspector="npcs">
+        <div class="pane">
+          <div class="toolbar">
+            <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="npcSearch" placeholder="编号 / 名称 / 外形编号" autocomplete="off"></label>
+            <button class="primary slim" id="newNpcBtn"><svg><use href="/icons.svg#plus"/></svg>新建</button>
+            <div class="list-meta" data-wrap="npcWrap">
+              <span class="count" id="npcCount"></span>
+              <button type="button" class="icon-button" id="npcPrev" aria-label="上一页" title="上一页"><svg><use href="/icons.svg#chevron-left"/></svg></button>
+              <button type="button" class="icon-button" id="npcNext" aria-label="下一页" title="下一页"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+              <span class="page-stat" id="npcPage"></span>
+              <button type="button" class="icon-button to-top" id="npcTop" aria-label="回到顶部" title="回到顶部"><svg><use href="/icons.svg#to-top"/></svg></button>
+            </div>
+          </div>
+          <div class="table-wrap" id="npcWrap">
+            <table>
+              <thead><tr><th>编号</th><th>头顶名</th><th>类型</th><th>外形编号</th><th>货单</th><th>刷新</th></tr></thead>
+              <tbody id="npcRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="inspector-col">
+          <button type="button" class="inspector-toggle" aria-label="隐藏侧栏" aria-expanded="true" title="隐藏侧栏"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+          <aside class="inspector" id="npcInspector"></aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-mobs">
+      <div class="workspace" data-inspector="mobs">
+        <div class="pane">
+          <div class="toolbar">
+            <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="mobSearch" placeholder="编号 / 名称 / 外形编号" autocomplete="off"></label>
+            <button class="primary slim" id="newMobBtn"><svg><use href="/icons.svg#plus"/></svg>新建</button>
+            <div class="list-meta" data-wrap="mobWrap">
+              <span class="count" id="mobCount"></span>
+              <button type="button" class="icon-button" id="mobPrev" aria-label="上一页" title="上一页"><svg><use href="/icons.svg#chevron-left"/></svg></button>
+              <button type="button" class="icon-button" id="mobNext" aria-label="下一页" title="下一页"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+              <span class="page-stat" id="mobPage"></span>
+              <button type="button" class="icon-button to-top" id="mobTop" aria-label="回到顶部" title="回到顶部"><svg><use href="/icons.svg#to-top"/></svg></button>
+            </div>
+          </div>
+          <div class="table-wrap" id="mobWrap">
+            <table>
+              <thead><tr><th>编号</th><th>头顶名</th><th>外形编号</th><th>货单</th><th>刷新</th></tr></thead>
+              <tbody id="mobRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="inspector-col">
+          <button type="button" class="inspector-toggle" aria-label="隐藏侧栏" aria-expanded="true" title="隐藏侧栏"><svg><use href="/icons.svg#chevron-right"/></svg></button>
+          <aside class="inspector" id="mobInspector"></aside>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="drawer" id="drawer" aria-label="行为记录">
+    <div class="drawer-head">
+      行为
+      <button type="button" class="icon-button" id="pendingClear" aria-label="清除全部记录" title="清除全部记录" disabled>
+        <svg><use href="/icons.svg#trash"/></svg>
+      </button>
+    </div>
+    <div class="drawer-list" id="pendingList"></div>
+  </aside>
+</div>
+
+<div class="toast-stack" id="toasts"></div>
+<script src="/app.js"></script>
+</body>
+</html>
