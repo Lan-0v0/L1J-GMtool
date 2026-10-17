@@ -176,7 +176,12 @@ function icon(name) { return `<svg><use href="/icons.svg#${name}"/></svg>`; }
 function operator() { return state.selected.find(r => r.id === state.operatorId) || state.selected.find(r => r.online) || state.selected[0] || null; }
 function selectedIds() { return state.selected.map(r => r.id); }
 function isPicked(id) { return state.selected.some(r => r.id === id); }
-function canAct() { return Boolean(state.status?.agent); }
+function canAct() {
+  if (!state.status) return false;
+  // 远端模式没有注入通道：只要本地游戏窗口在，指令就能经窗口下发
+  if (state.status.mode === "remote") return Boolean(state.status.gameWindow);
+  return Boolean(state.status.agent);
+}
 const SELECT_KEY = "l1j-gmtool-selected";
 function saveSelection() {
   try {
@@ -247,9 +252,12 @@ async function loadStatus(silent) {
     state.token = s.token;
     $("#lampDb").className = "lamp ok";
     const remote = s.mode === "remote";
-    $("#lampWin").className = "lamp " + (remote ? "ok" : (s.agent ? "ok" : "bad"));
+    const ready = remote ? Boolean(s.gameWindow) : Boolean(s.agent);
+    $("#lampWin").className = "lamp " + (ready ? "ok" : "bad");
     $("#lampWin").title = remote
-      ? "远端模式 · 服务端在云端，GM 指令走游戏窗口"
+      ? (s.gameWindow
+          ? "远端模式 · 指令经游戏窗口下发（当前登录角色需有 GM 权限）"
+          : "远端模式 · 未找到游戏窗口，请先启动客户端并登录")
       : (s.agent ? ("游戏服已注入 ver=" + (s.agentVer || "?")) : (s.agentError || "未连上游戏服"));
     $("#pendingCount").textContent = s.pending;
   } catch (e) {
