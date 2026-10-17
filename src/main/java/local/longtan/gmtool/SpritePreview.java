@@ -30,10 +30,17 @@ final class SpritePreview {
     private final ConcurrentHashMap<Integer, IconHit> iconCache = new ConcurrentHashMap<>();
 
     SpritePreview(Path home) throws IOException {
-        this.clientRoot = home.resolve("..").resolve("龙潭天堂").normalize();
-        if (!Files.isDirectory(clientRoot)) {
-            throw new IOException("找不到客户端目录：" + clientRoot);
+        String override = System.getProperty("gmtool.client.dir", "").trim();
+        Path root = override.isEmpty()
+                ? home.resolve("..").resolve("龙潭天堂").normalize()
+                : Path.of(override).toAbsolutePath().normalize();
+        if (!Files.isDirectory(root)) {
+            // 客户端目录只用于图标预览；缺失时 GM 台其余功能照常可用
+            this.clientRoot = null;
+            System.out.println("[i] 客户端目录不存在，图标预览已禁用：" + root);
+            return;
         }
+        this.clientRoot = root;
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(clientRoot, "Sprite*.idx")) {
             for (Path idx : stream) {
                 indexPack(idx);
@@ -54,6 +61,9 @@ final class SpritePreview {
     }
 
     private IconHit loadIcon(int id) throws IOException {
+        if (clientRoot == null) {
+            throw new IOException("未配置客户端目录，图标预览不可用（用 -Dgmtool.client.dir 指定）");
+        }
         IconHit cached = iconCache.get(id);
         if (cached != null) return cached;
         // Inventory icons in this client live in .tbt (sparse RGB555 runs,

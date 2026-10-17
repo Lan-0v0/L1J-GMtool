@@ -14,7 +14,29 @@
 ## 启动
 
 - **本地**：双击 `start-gmtool-local.bat`
-- **远端**：双击 `start-gmtool-remote.bat` —— 自动修私钥 ACL、切换 `sql.properties` 到远端、建 SSH 隧道（`13306` 数据库 + `17980` agent）、拉取 agent 令牌、以 `-Dgmtool.agent=tunnel` 启动。端口已在监听则直接复用。
+- **远端**：双击 `start-gmtool-remote.bat` —— 自动修私钥 ACL、准备 `config\sql.properties`、建 SSH 隧道（`13306` 数据库 + `17980` agent）、拉取 agent 令牌、以 `-Dgmtool.agent=tunnel` 启动。端口已在监听则直接复用。
+
+## 从 GitHub 克隆后直接用（误删/换机恢复）
+
+仓库已包含运行所需的一切：`GMTool.jar`、`lib\`（MySQL 驱动）、`src\`、启动脚本、`config\sql.properties.remote`。
+
+只需要补两样本机私密文件（都在 `.gitignore` 里，不会进仓库）：
+
+| 放哪 | 内容 |
+|---|---|
+| `keys\L1J_CN.pem` | SSH 私钥（或用环境变量 `L1J_PEM` 指向任意位置） |
+| `config\sql.properties` | 首次启动会自动由 `sql.properties.remote` 复制；要换库就改它 |
+
+可选环境变量：
+
+| 变量 | 作用 |
+|---|---|
+| `GMT_JAVA` | 指定 `javaw.exe`（默认找 `..\..\JDK11`、`JAVA_HOME`、`PATH`） |
+| `L1J_PEM` | SSH 私钥路径 |
+| `L1J_SSH_HOST` | 服务器地址（默认 `ubuntu@124.222.172.24`） |
+
+> 服务器端需要装好 `GMAgent-remote`（见 `L1J-CN` 仓库同名目录），否则隧道 17980 不会有服务在听。
+
 
 ## 用法要点
 

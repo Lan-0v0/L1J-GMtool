@@ -28,3 +28,7 @@ Thumbs.db
 desktop.ini
 *.swp
 *~
+
+# ===== 远端配置与本机密钥 =====
+config/sql.properties
+keys/

@@ -34,10 +34,7 @@ final class Database {
     Database(Path home, AuditLog audit) throws IOException, ClassNotFoundException {
         this.audit = audit;
         this.clientStrings = ClientStrings.load(home.resolve("..").resolve("龙潭天堂").normalize());
-        this.configPath = home.resolve("..").resolve("服务端").resolve("config").resolve("sql.properties").normalize();
-        if (!Files.isRegularFile(configPath)) {
-            throw new IOException("找不到服务端数据库配置：" + configPath);
-        }
+        this.configPath = resolveConfigPath(home);
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(configPath)) {
             properties.load(input);
@@ -49,6 +46,31 @@ final class Database {
         this.login = required(properties, "Login");
         this.password = properties.getProperty("Password", "");
         Class.forName("com.mysql.jdbc.Driver");
+    }
+
+    /**
+     * 数据库配置查找顺序：
+     *   1) -Dgmtool.db.config=<文件> / 环境变量 GMT_DB_CONFIG
+     *   2) <GM台目录>/config/sql.properties          （克隆仓库后自带，推荐）
+     *   3) <GM台目录>/../服务端/config/sql.properties （老的 L1J-CN 目录布局）
+     */
+    private static Path resolveConfigPath(Path home) throws IOException {
+        String override = System.getProperty("gmtool.db.config", "").trim();
+        if (override.isEmpty()) {
+            String env = System.getenv("GMT_DB_CONFIG");
+            if (env != null) override = env.trim();
+        }
+        if (!override.isEmpty()) {
+            Path explicit = Path.of(override).toAbsolutePath().normalize();
+            if (Files.isRegularFile(explicit)) return explicit;
+            throw new IOException("指定的数据库配置不存在：" + explicit);
+        }
+        Path local = home.resolve("config").resolve("sql.properties").normalize();
+        if (Files.isRegularFile(local)) return local;
+        Path legacy = home.resolve("..").resolve("服务端").resolve("config").resolve("sql.properties").normalize();
+        if (Files.isRegularFile(legacy)) return legacy;
+        throw new IOException("找不到数据库配置。请把 sql.properties 放到 " + local
+                + "（可复制 config/sql.properties.remote），或用 -Dgmtool.db.config 指定");
     }
 
     Map<String, Object> status() throws SQLException {
