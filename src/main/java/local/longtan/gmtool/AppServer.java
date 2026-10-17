@@ -253,7 +253,7 @@ final class AppServer {
             boolean online = Boolean.TRUE.equals(ch.get("online")) || Boolean.TRUE.equals(ch.get("live"));
             if (online && targetLive) {
                 String command = "跟o " + targetName;
-                serverBridge.command(String.valueOf(ch.get("name")), command);
+                execCommand(String.valueOf(ch.get("name")), command);
                 audit.write("移到此人处", ch.get("name") + " → " + targetName + " / " + command + " (实时)");
                 row.put("action", "follow");
                 row.put("command", "." + command);
@@ -261,7 +261,7 @@ final class AppServer {
                         + target.get("map") + ":" + target.get("x") + "," + target.get("y"));
             } else if (online) {
                 String command = "传送o " + target.get("x") + " " + target.get("y") + " " + target.get("map");
-                serverBridge.command(String.valueOf(ch.get("name")), command);
+                execCommand(String.valueOf(ch.get("name")), command);
                 audit.write("移到此人处", ch.get("name") + " → " + targetName + " / " + command);
                 row.put("action", "follow");
                 row.put("command", "." + command);
@@ -305,9 +305,8 @@ final class AppServer {
         String who = onlineName(characterId);
         if (who == null) who = onlineName(longValue(body.get("operatorId"), -1));
         if (who != null) {
-            serverBridge.ensure();
             String command = "传送o " + x + " " + y + " " + map;
-            serverBridge.command(who, command);
+            execCommand(who, command);
             audit.write("传送", who + " / " + command);
             Map<String, Object> ok = new LinkedHashMap<>();
             ok.put("command", "." + command);
@@ -340,12 +339,11 @@ final class AppServer {
         int maxMp = intValue(body.get("maxMp"), ((Number) character.get("maxMp")).intValue());
         boolean online = Boolean.TRUE.equals(character.get("online"));
         if (online) {
-            serverBridge.ensure();
             String name = String.valueOf(character.get("name"));
             String opName = onlineName(longValue(body.get("operatorId"), -1));
             if (opName == null) opName = name;
-            serverBridge.command(opName, "角色更改o " + name + " HP " + maxHp);
-            serverBridge.command(opName, "角色更改o " + name + " MP " + maxMp);
+            execCommand(opName, "角色更改o " + name + " HP " + maxHp);
+            execCommand(opName, "角色更改o " + name + " MP " + maxMp);
             audit.write("血蓝指令", name + " HP/MP 上限 " + maxHp + "/" + maxMp);
             return Map.of("ok", true, "mode", "command");
         }
@@ -386,18 +384,16 @@ final class AppServer {
         Database.Item item = database.requireItem(itemId);
         if ("warehouse".equals(mode)) {
             Map<String, Object> character = database.character(longValue(body.get("characterId"), -1));
-            serverBridge.ensure();
             String op = onlineName(longValue(body.get("operatorId"), -1));
             // 仓库侧没有账号级金币指令，金币也只能走 .给予o(L1CN)
             String command = "给予o " + character.get("account") + " " + itemId + " " + count;
-            serverBridge.command(op, command);
+            execCommand(op, command);
             audit.write("仓库给予", character.get("account") + " / " + item.name + " x" + count);
             return Map.of("ok", true, "command", command);
         }
         if (!isAdena && !item.stackable && count > 10) {
             throw new IllegalArgumentException("不可堆叠物品 .do 一次最多 10 件");
         }
-        serverBridge.ensure();
         String who = onlineName(longValue(body.get("operatorId"), -1));
         if (who == null) who = onlineName(longValue(body.get("characterId"), -1));
         if (who == null) {
@@ -406,12 +402,12 @@ final class AppServer {
         if (isAdena) {
             // 金币专属链路：.钱o -> L1Adena.storeItem(L1ItemId.ADENA, count)
             String command = "钱o " + count;
-            serverBridge.command(who, command);
+            execCommand(who, command);
             audit.write("创造金币", "钱o " + count);
             return Map.of("ok", true, "command", command);
         }
         String command = "do " + itemId + " " + count + " " + enchant;
-        serverBridge.command(who, command);
+        execCommand(who, command);
         audit.write("创造物品", item.name + "(" + itemId + ") x" + count + " +" + enchant);
         return Map.of("ok", true, "command", command);
     }
@@ -491,6 +487,17 @@ final class AppServer {
         }
         Map<String, Object> result = new LinkedHashMap<>();
         if (live) {
+            if (remote) {
+                // 远端模式没有注入通道：.npco 只能刷在操作者脚底，也拿不到 objId
+                gameBridge.sendCommand(".npco " + npcId);
+                audit.write("脚底测试NPC", "npc=" + npcId + " (window)");
+                Map<String, Object> win = new LinkedHashMap<>();
+                win.put("ok", true);
+                win.put("mode", "window");
+                win.put("npcId", npcId);
+                win.put("message", "已发送 .npco " + npcId + "，NPC 会刷在当前角色脚底；远端模式不返回 objId，无法一键撤回");
+                return win;
+            }
             serverBridge.ensure();
             String opName = onlineName(operatorId);
             int x = intValue(body.get("x"), 0);
@@ -600,6 +607,9 @@ final class AppServer {
         int x = intValue(body.get("x"), 0);
         int y = intValue(body.get("y"), 0);
         int radius = intValue(body.get("radius"), 0);
+        if (remote) {
+            throw new IllegalStateException("远端模式无法按坐标批量移走 NPC（该功能依赖注入通道返回 objId）。请在游戏内用指令处理。");
+        }
         Map<String, Object> gone = serverBridge.despawnNpc(npcId, map, x, y, radius);
         audit.write("移走NPC", "npc=" + npcId + " map=" + map + " removed=" + gone.get("removed"));
         return gone;
@@ -648,6 +658,9 @@ final class AppServer {
     private String undoTask(String type, Map<String, Object> payload) throws Exception {
         switch (type) {
             case "spawn-live": {
+                if (remote) {
+                    throw new IllegalStateException("远端模式无法撤回现场 NPC（需要注入通道拿 objId）；该对象重启后会消失");
+                }
                 int objId = intValue(payload.get("objId"), 0);
                 int npcId = intValue(payload.get("npcId"), 0);
                 Map<String, Object> gone = serverBridge.despawn(objId, npcId);
@@ -713,11 +726,10 @@ final class AppServer {
     private Object sendCommand(HttpExchange exchange) throws Exception {
         requireMethod(exchange, "POST");
         Map<?, ?> body = body(exchange);
-        serverBridge.ensure();
         String command = stringValue(body.get("command"));
         if (command.startsWith(".")) command = command.substring(1);
         String op = onlineName(longValue(body.get("operatorId"), -1));
-        serverBridge.command(op, command);
+        execCommand(op, command);
         audit.write("指令", command);
         return Map.of("command", "." + command);
     }
@@ -738,12 +750,28 @@ final class AppServer {
         return Map.of("ok", true);
     }
 
+    /**
+     * 统一发指令入口。
+     * 本地模式：走 ServerBridge（JVMTI 注入，以任意在线角色身份执行、不抢焦点）。
+     * 远端模式：服务端在云端无法注入，改由本地游戏窗口粘贴发送
+     *          —— 执行者固定是「当前在窗口里登录的角色」，必须是有 GM 权限的号。
+     */
+    private void execCommand(String operator, String command) throws Exception {
+        if (remote) {
+            gameBridge.sendCommand("." + command);
+            return;
+        }
+        serverBridge.ensure();
+        serverBridge.command(operator, command);
+    }
+
     private Map<String, Object> requireOnlineOperator(long characterId, int ignoredRequiredLevel) throws SQLException {
         Map<String, Object> character = database.character(characterId);
         if (!Boolean.TRUE.equals(character.get("online"))) {
             throw new IllegalStateException("操作者不在线");
         }
-        serverBridge.ensure();
+        // 远端模式没有注入通道，在线判定即可；真正的执行者是游戏窗口里登录的角色
+        if (!remote) serverBridge.ensure();
         return character;
     }
 
