@@ -37,12 +37,14 @@ final class AppServer {
     private final MapTiles mapTiles;
     private final SpritePreview sprites;
     private final boolean remote;
+    private final boolean tunnelAgent;
     private final String token = UUID.randomUUID().toString();
     private HttpServer server;
     private ExecutorService executor;
 
     AppServer(InetAddress address, Database database, GameBridge gameBridge, ServerBridge serverBridge,
-              AuditLog audit, PendingStore pending, MapTiles mapTiles, SpritePreview sprites, boolean remote) {
+              AuditLog audit, PendingStore pending, MapTiles mapTiles, SpritePreview sprites, boolean remote,
+              boolean tunnelAgent) {
         this.address = address;
         this.database = database;
         this.gameBridge = gameBridge;
@@ -52,6 +54,7 @@ final class AppServer {
         this.mapTiles = mapTiles;
         this.sprites = sprites;
         this.remote = remote;
+        this.tunnelAgent = tunnelAgent;
     }
 
     int start() throws IOException {
@@ -123,7 +126,7 @@ final class AppServer {
         status.putAll(serverBridge.status());
         status.put("token", token);
         status.put("version", "1.0.0");
-        status.put("mode", remote ? "remote" : "local");
+        status.put("mode", tunnelAgent ? "tunnel-agent" : (remote ? "remote" : "local"));
         status.put("pending", pending.openCount());
         return status;
     }
@@ -757,6 +760,12 @@ final class AppServer {
      *          —— 执行者固定是「当前在窗口里登录的角色」，必须是有 GM 权限的号。
      */
     private void execCommand(String operator, String command) throws Exception {
+        if (tunnelAgent) {
+            // 云端服务端经 -javaagent 加载了 GMAgent，走 SSH 隧道直接进程内执行
+            serverBridge.ensure();
+            serverBridge.command(operator, command);
+            return;
+        }
         if (remote) {
             gameBridge.sendCommand("." + command);
             return;

@@ -27,11 +27,25 @@ final class ServerBridge {
     // 远端模式：服务端跑在云端，本机没有 com.lineage.Server 进程可注入。
     // 此模式下所有「注入式」指令改为明确报错，GM 指令请走游戏窗口通道。
     private final boolean remote;
+    // 隧道 agent 模式：云端的服务端用 -javaagent 启动（GMAgent-remote），
+    // GM 台经 SSH 隧道访问 127.0.0.1:17980，指令在服务端进程内执行，不碰游戏窗口。
+    private final boolean tunnel;
+    private final String token;
     // 只认 17980。曾经用过 17981/17982 旁路助手，实测 AgentLoadException 且破坏待办记录，已废弃。
     private final int agentPort = AGENT_PORT;
 
     ServerBridge(Path home, boolean remote) throws Exception {
         this.remote = remote;
+        this.tunnel = "tunnel".equalsIgnoreCase(System.getProperty("gmtool.agent", "").trim());
+        String tok = "";
+        try {
+            Path tokenFile = home.resolve("data").resolve("agent.token");
+            if (Files.isRegularFile(tokenFile)) {
+                tok = Files.readString(tokenFile, StandardCharsets.UTF_8).trim();
+            }
+        } catch (Exception ignored) {
+        }
+        this.token = tok;
         Path built = home.resolve("GMAgent.jar");
         Path copied = copyAgent(built);
         this.agentJar = copied != null ? copied : built;
@@ -57,6 +71,18 @@ final class ServerBridge {
 
     Map<String, Object> status() {
         Map<String, Object> row = new LinkedHashMap<>();
+        if (tunnel) {
+            int ver = pingVer();
+            row.put("agent", ver >= NEED_VER);
+            row.put("agentVer", ver);
+            row.put("agentPort", agentPort);
+            row.put("serverPids", new ArrayList<Long>());
+            row.put("agentMode", "tunnel");
+            if (ver < NEED_VER) {
+                row.put("agentError", "隧道 agent 未连通：检查 SSH 隧道是否带 -L 17980，以及云端服务端是否加载了 GMAgent");
+            }
+            return row;
+        }
         if (remote) {
             row.put("agent", false);
             row.put("agentVer", 0);
@@ -87,6 +113,14 @@ final class ServerBridge {
     }
 
     synchronized void ensure() {
+        if (tunnel) {
+            if (pingVer() >= NEED_VER) {
+                attached = true;
+                return;
+            }
+            throw new IllegalStateException("隧道 agent 未连通（127.0.0.1:17980）。"
+                    + "请确认 SSH 隧道带 -L 17980:127.0.0.1:17980，且云端服务端已安装 GMAgent-remote");
+        }
         if (remote) {
             throw new IllegalStateException("远端模式：服务端在云端，无法注入。GM 指令请通过游戏窗口发送（.给予o / .传送o 等）。");
         }
@@ -236,6 +270,9 @@ final class ServerBridge {
             conn.setConnectTimeout(2000);
             conn.setReadTimeout(8000);
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            if (token != null && !token.isEmpty()) {
+                conn.setRequestProperty("X-GM-Token", token);
+            }
             byte[] bytes = Json.stringify(body).getBytes(StandardCharsets.UTF_8);
             conn.setFixedLengthStreamingMode(bytes.length);
             try (OutputStream out = conn.getOutputStream()) {

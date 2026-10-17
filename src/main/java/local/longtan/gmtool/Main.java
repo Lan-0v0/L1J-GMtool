@@ -32,6 +32,7 @@ public final class Main {
 
         AuditLog audit = new AuditLog(data.resolve("audit.log"));
         boolean remote = Boolean.parseBoolean(System.getProperty("gmtool.remote", "false").trim());
+        boolean tunnelAgent = "tunnel".equalsIgnoreCase(System.getProperty("gmtool.agent", "").trim());
         Database database = new Database(home, audit);
         GameBridge gameBridge = new GameBridge();
         ServerBridge serverBridge = new ServerBridge(home, remote);
@@ -39,7 +40,7 @@ public final class Main {
         MapTiles mapTiles = new MapTiles(home);
         SpritePreview sprites = new SpritePreview(home);
         AppServer server = new AppServer(InetAddress.getLoopbackAddress(),
-                database, gameBridge, serverBridge, audit, pending, mapTiles, sprites, remote);
+                database, gameBridge, serverBridge, audit, pending, mapTiles, sprites, remote, tunnelAgent);
         pending.start();
         int port = server.start();
         Files.writeString(data.resolve("gmtool.port"), Integer.toString(port), StandardCharsets.US_ASCII);
