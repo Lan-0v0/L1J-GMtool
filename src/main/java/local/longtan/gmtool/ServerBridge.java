@@ -24,10 +24,14 @@ final class ServerBridge {
     private final Path agentJar;
     private final Path findScript;
     private volatile boolean attached;
+    // 远端模式：服务端跑在云端，本机没有 com.lineage.Server 进程可注入。
+    // 此模式下所有「注入式」指令改为明确报错，GM 指令请走游戏窗口通道。
+    private final boolean remote;
     // 只认 17980。曾经用过 17981/17982 旁路助手，实测 AgentLoadException 且破坏待办记录，已废弃。
     private final int agentPort = AGENT_PORT;
 
-    ServerBridge(Path home) throws Exception {
+    ServerBridge(Path home, boolean remote) throws Exception {
+        this.remote = remote;
         Path built = home.resolve("GMAgent.jar");
         Path copied = copyAgent(built);
         this.agentJar = copied != null ? copied : built;
@@ -53,6 +57,15 @@ final class ServerBridge {
 
     Map<String, Object> status() {
         Map<String, Object> row = new LinkedHashMap<>();
+        if (remote) {
+            row.put("agent", false);
+            row.put("agentVer", 0);
+            row.put("agentPort", 0);
+            row.put("serverPids", new ArrayList<Long>());
+            row.put("agentMode", "remote");
+            row.put("agentError", "远端模式：服务端在云端，指令走游戏窗口");
+            return row;
+        }
         int ver = pingVer();
         boolean up = ver >= NEED_VER;
         row.put("agent", up);
@@ -74,6 +87,9 @@ final class ServerBridge {
     }
 
     synchronized void ensure() {
+        if (remote) {
+            throw new IllegalStateException("远端模式：服务端在云端，无法注入。GM 指令请通过游戏窗口发送（.给予o / .传送o 等）。");
+        }
         if (pingVer() >= NEED_VER) {
             attached = true;
             return;

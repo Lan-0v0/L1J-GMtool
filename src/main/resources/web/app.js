@@ -137,7 +137,8 @@ function toast(msg, err) {
 function friendlyError(msg) {
   const s = String(msg || "");
   if (/Communications link failure|The last packet sent successfully|CommunicationsException|Could not create connection|Connection refused|connect timed out|No operations allowed after connection closed|Communications link failure/i.test(s)) {
-    return "未检测到本地服务端与数据库";
+    const remote = (typeof state !== "undefined") && state.status && state.status.mode === "remote";
+    return remote ? "未检测到远端服务端与数据库" : "未检测到本地服务端与数据库";
   }
   return s;
 }
@@ -245,8 +246,11 @@ async function loadStatus(silent) {
     state.status = s;
     state.token = s.token;
     $("#lampDb").className = "lamp ok";
-    $("#lampWin").className = "lamp " + (s.agent ? "ok" : "bad");
-    $("#lampWin").title = s.agent ? ("游戏服已注入 ver=" + (s.agentVer || "?")) : (s.agentError || "未连上游戏服");
+    const remote = s.mode === "remote";
+    $("#lampWin").className = "lamp " + (remote ? "ok" : (s.agent ? "ok" : "bad"));
+    $("#lampWin").title = remote
+      ? "远端模式 · 服务端在云端，GM 指令走游戏窗口"
+      : (s.agent ? ("游戏服已注入 ver=" + (s.agentVer || "?")) : (s.agentError || "未连上游戏服"));
     $("#pendingCount").textContent = s.pending;
   } catch (e) {
     $("#lampDb").className = "lamp bad";

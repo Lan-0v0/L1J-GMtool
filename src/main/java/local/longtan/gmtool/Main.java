@@ -31,14 +31,15 @@ public final class Main {
         }
 
         AuditLog audit = new AuditLog(data.resolve("audit.log"));
+        boolean remote = Boolean.parseBoolean(System.getProperty("gmtool.remote", "false").trim());
         Database database = new Database(home, audit);
         GameBridge gameBridge = new GameBridge();
-        ServerBridge serverBridge = new ServerBridge(home);
+        ServerBridge serverBridge = new ServerBridge(home, remote);
         PendingStore pending = new PendingStore(data.resolve("pending.json"), database, audit);
         MapTiles mapTiles = new MapTiles(home);
         SpritePreview sprites = new SpritePreview(home);
         AppServer server = new AppServer(InetAddress.getLoopbackAddress(),
-                database, gameBridge, serverBridge, audit, pending, mapTiles, sprites);
+                database, gameBridge, serverBridge, audit, pending, mapTiles, sprites, remote);
         pending.start();
         int port = server.start();
         Files.writeString(data.resolve("gmtool.port"), Integer.toString(port), StandardCharsets.US_ASCII);

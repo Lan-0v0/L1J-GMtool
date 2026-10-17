@@ -36,12 +36,13 @@ final class AppServer {
     private final PendingStore pending;
     private final MapTiles mapTiles;
     private final SpritePreview sprites;
+    private final boolean remote;
     private final String token = UUID.randomUUID().toString();
     private HttpServer server;
     private ExecutorService executor;
 
     AppServer(InetAddress address, Database database, GameBridge gameBridge, ServerBridge serverBridge,
-              AuditLog audit, PendingStore pending, MapTiles mapTiles, SpritePreview sprites) {
+              AuditLog audit, PendingStore pending, MapTiles mapTiles, SpritePreview sprites, boolean remote) {
         this.address = address;
         this.database = database;
         this.gameBridge = gameBridge;
@@ -50,6 +51,7 @@ final class AppServer {
         this.pending = pending;
         this.mapTiles = mapTiles;
         this.sprites = sprites;
+        this.remote = remote;
     }
 
     int start() throws IOException {
@@ -121,6 +123,7 @@ final class AppServer {
         status.putAll(serverBridge.status());
         status.put("token", token);
         status.put("version", "1.0.0");
+        status.put("mode", remote ? "remote" : "local");
         status.put("pending", pending.openCount());
         return status;
     }
@@ -815,7 +818,9 @@ final class AppServer {
             sendJson(exchange, 404, error("不支持的地图资源"));
         } catch (Exception e) {
             e.printStackTrace();
-            sendJson(exchange, 500, error(isDbDown(e) ? "未检测到本地服务端与数据库" : "地图读取失败"));
+            sendJson(exchange, 500, error(isDbDown(e)
+                    ? (remote ? "未检测到远端服务端与数据库" : "未检测到本地服务端与数据库")
+                    : "地图读取失败"));
         } finally {
             exchange.close();
         }
@@ -954,8 +959,8 @@ final class AppServer {
         return Collections.singletonMap("error", message == null ? "未知错误" : message);
     }
 
-    private static String publicError(Throwable error) {
-        if (isDbDown(error)) return "未检测到本地服务端与数据库";
+    private String publicError(Throwable error) {
+        if (isDbDown(error)) return remote ? "未检测到远端服务端与数据库" : "未检测到本地服务端与数据库";
         String message = error.getMessage();
         if (message == null || message.isEmpty()) return "操作失败";
         return "操作失败：" + message;
