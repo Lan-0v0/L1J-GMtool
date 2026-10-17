@@ -68,7 +68,7 @@ icacls "%PEM%" /inheritance:r /grant:r "%USERNAME%:R" >nul 2>&1
 
 rem ---------- 4. 结束旧实例（按端口） ----------
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr /C:":17880" ^| findstr /C:"LISTENING"') do taskkill /F /PID %%p >nul 2>&1
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 
 echo [1/4] preparing SSH tunnel 127.0.0.1:%LPORT% + %APORT% ...
 set "TUNNEL_UP="
@@ -81,7 +81,7 @@ if defined TUNNEL_UP (
     echo       tunnel already listening, reusing
 ) else (
     start "L1J-DB-Tunnel" /min ssh -N -L %LPORT%:127.0.0.1:3306 -L %APORT%:127.0.0.1:17980 -i "%PEM%" -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes %SSHHOST%
-    timeout /t 6 /nobreak >nul
+    ping -n 7 127.0.0.1 >nul
 )
 
 echo [2/4] checking tunnel ...
@@ -115,6 +115,6 @@ start "" "%GM_JAVA%" -Dfile.encoding=UTF-8 -Dgmtool.remote=true -Dgmtool.agent=t
 echo.
 echo [OK] http://127.0.0.1:17880   (tunnel-agent mode)
 echo      Keep the "L1J-DB-Tunnel" window open; closing it drops DB + agent link.
-timeout /t 5 /nobreak >nul
+ping -n 6 127.0.0.1 >nul
 endlocal
 exit /b 0
